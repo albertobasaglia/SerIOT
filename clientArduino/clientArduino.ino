@@ -42,7 +42,7 @@ String id = "1";
 
 int i = 0;
 
-long delayTime = 3000;
+long delayTime = 5000;
 
 void setup() {
   // You can use Ethernet.init(pin) to configure the CS pin

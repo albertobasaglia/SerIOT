@@ -9,21 +9,14 @@ import java.net.*;
 
 public class Main {
 
+    public static final String[] prefixesType = {"HERE", "POST"};
     public static final String[] parametersType = {"TEMP", "HUMI", "LUMI", "WEIG", "RAND"};
 
     public static void main(String[] args) throws IOException {
 
-        //connection to database
         MongoClient mongoClient = MongoClients.create(Credentials.uri);
         MongoDatabase database = mongoClient.getDatabase("seriot");
-
         MongoCollection<Document> records = database.getCollection("records");
-
-        Document document = new Document();
-        document.append("anni",15);
-        document.append("nome","Giulio");
-        records.insertOne(document);
-
 
         String str = "";
         DatagramSocket ds = new DatagramSocket(2000);
@@ -40,25 +33,22 @@ public class Main {
 
             String[] data = new String[parametersType.length + 2];
 
-            pos = 0;
-            for(String s: parametersType){
-                data[pos++] = s + ": ";
+            for (int i = 0; i < data.length; i++) {
+                data[i] = "";
             }
-            data[parametersType.length] = "ID: ";
-            data[parametersType.length+1] = "TIME: ";
 
             dp = new DatagramPacket(buf, 1024);
             ds.receive(dp);
             str = new String(dp.getData(), 0, dp.getLength());
 
-            if (str.charAt(0) == 'H' && str.charAt(1) == 'E' && str.charAt(2) == 'R' && str.charAt(3) == 'E') {
+            if (getPosition(0, str) == -1) {
 
                 str = "" + System.currentTimeMillis();
 
                 dp = new DatagramPacket(str.getBytes(), str.length(), ip, 2001);
                 ds.send(dp);
 
-            } else if (str.charAt(0) == 'P' && str.charAt(1) == 'O' && str.charAt(2) == 'S' && str.charAt(3) == 'T') {
+            } else if (getPosition(0, str) == -2) {
 
                 parametersNumber = (int) str.charAt(5) - 48;
 
@@ -74,10 +64,21 @@ public class Main {
                         data[parametersType.length] += str.charAt(i);
                         i += 2;
                         while (i < str.length()) {
-                            data[parametersType.length+1] += str.charAt(i++);
+                            data[parametersType.length + 1] += str.charAt(i++);
                         }
                     }
                 }
+
+                Document document = new Document();
+                for (int i = 0; i < data.length - 2; i++) {
+                    if (data[i].equals("")) {
+                        data[i] += "not recived";
+                    }
+                    document.append(parametersType[i], data[i]);
+                }
+                document.append("ADDR", data[data.length - 2]);
+                document.append("TIME", data[data.length - 1]);
+                records.insertOne(document);
 
                 for (String s : data) {
                     System.out.println(s);
@@ -92,11 +93,19 @@ public class Main {
 
     public static int getPosition(int pos, String str) {
 
+        for (int i = prefixesType.length - 1; i > -1; i--) {
+            if (str.charAt(pos) == prefixesType[i].charAt(0) &&
+                    str.charAt(pos + 1) == prefixesType[i].charAt(1) &&
+                    str.charAt(pos + 2) == prefixesType[i].charAt(2) &&
+                    str.charAt(pos + 3) == prefixesType[i].charAt(3)) {
+                return -i - 1;
+            }
+        }
         for (int i = 0; i < parametersType.length; i++) {
             if (str.charAt(pos) == parametersType[i].charAt(0) &&
                     str.charAt(pos + 1) == parametersType[i].charAt(1) &&
                     str.charAt(pos + 2) == parametersType[i].charAt(2) &&
-                    str.charAt(pos + 3) == parametersType[i].charAt(3)){
+                    str.charAt(pos + 3) == parametersType[i].charAt(3)) {
                 return i;
             }
         }
