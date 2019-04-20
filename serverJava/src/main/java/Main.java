@@ -1,3 +1,9 @@
+import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import org.bson.Document;
+
 import java.io.IOException;
 import java.net.*;
 
@@ -6,6 +12,18 @@ public class Main {
     public static final String[] parametersType = {"TEMP", "HUMI", "LUMI", "WEIG", "RAND"};
 
     public static void main(String[] args) throws IOException {
+
+        //connection to database
+        MongoClient mongoClient = MongoClients.create(Credentials.uri);
+        MongoDatabase database = mongoClient.getDatabase("seriot");
+
+        MongoCollection<Document> records = database.getCollection("records");
+
+        Document document = new Document();
+        document.append("anni",15);
+        document.append("nome","Giulio");
+        records.insertOne(document);
+
 
         String str = "";
         DatagramSocket ds = new DatagramSocket(2000);
