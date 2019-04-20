@@ -71,10 +71,9 @@ public class Main {
 
                 Document document = new Document();
                 for (int i = 0; i < data.length - 2; i++) {
-                    if (data[i].equals("")) {
-                        data[i] += "not recived";
+                    if (!data[i].equals("")) {
+                        document.append(parametersType[i], data[i]);
                     }
-                    document.append(parametersType[i], data[i]);
                 }
                 document.append("ADDR", data[data.length - 2]);
                 document.append("TIME", data[data.length - 1]);
