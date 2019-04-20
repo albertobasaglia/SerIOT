@@ -2,6 +2,9 @@ import java.io.IOException;
 import java.net.*;
 
 public class Main {
+
+    public static final String[] parametersType = {"TEMP", "HUMI", "LUMI", "WEIG", "RAND"};
+
     public static void main(String[] args) throws IOException {
 
         String str = "";
@@ -10,14 +13,21 @@ public class Main {
         InetAddress ip = InetAddress.getByName("192.168.1.9");
 
         int pos = 0;
-        int parameters = 0;
+        int parametersNumber = 0;
 
         DatagramPacket dp = new DatagramPacket(str.getBytes(), str.length(), ip, 2001);
         ds.send(dp);
 
         while (true) {
 
-            String[] data = {"TEMP: ","HUMI: ","LUMI: ","WEIG: ","RAND: ","ID: ","TIME: "};
+            String[] data = new String[parametersType.length + 2];
+
+            pos = 0;
+            for(String s: parametersType){
+                data[pos++] = s + ": ";
+            }
+            data[parametersType.length] = "ID: ";
+            data[parametersType.length+1] = "TIME: ";
 
             dp = new DatagramPacket(buf, 1024);
             ds.receive(dp);
@@ -32,32 +42,29 @@ public class Main {
 
             } else if (str.charAt(0) == 'P' && str.charAt(1) == 'O' && str.charAt(2) == 'S' && str.charAt(3) == 'T') {
 
-                parameters = (int)str.charAt(5) - 48;
+                parametersNumber = (int) str.charAt(5) - 48;
 
-                for(int i = 7; i < str.length(); i++){
-                    if((int)str.charAt(i) > 64 && (int)str.charAt(i) < 91){
-                        parameters--;
+                for (int i = 7; i < str.length(); i++) {
+                    if ((int) str.charAt(i) > 64 && (int) str.charAt(i) < 91) {
+                        parametersNumber--;
                         pos = getPosition(i, str);
                         i += 5;
-                        while((int)str.charAt(i) != '/'){
+                        while ((int) str.charAt(i) != '/') {
                             data[pos] += str.charAt(i++);
                         }
-                    }
-                    else if(parameters == 0){
-                        data[5] += str.charAt(i);
+                    } else if (parametersNumber == 0) {
+                        data[parametersType.length] += str.charAt(i);
                         i += 2;
-                        while(i < str.length()){
-                            data[6] += str.charAt(i++);
+                        while (i < str.length()) {
+                            data[parametersType.length+1] += str.charAt(i++);
                         }
                     }
                 }
 
-                for(String s : data){
+                for (String s : data) {
                     System.out.println(s);
                 }
                 System.out.println("");
-
-                //System.out.println(str);
 
             }
 
@@ -65,18 +72,18 @@ public class Main {
 
     }
 
-    public static int getPosition(int i, String s) {
+    public static int getPosition(int pos, String str) {
 
-        if (s.charAt(i) == 'T' && s.charAt(i + 1) == 'E' && s.charAt(i + 2) == 'M' && s.charAt(i + 3) == 'P')
-            return 0;
-        else if (s.charAt(i) == 'H' && s.charAt(i + 1) == 'U' && s.charAt(i + 2) == 'M' && s.charAt(i + 3) == 'I')
-            return 1;
-        else if (s.charAt(i) == 'L' && s.charAt(i + 1) == 'U' && s.charAt(i + 2) == 'M' && s.charAt(i + 3) == 'I')
-            return 2;
-        else if (s.charAt(i) == 'W' && s.charAt(i + 1) == 'E' && s.charAt(i + 2) == 'I' && s.charAt(i + 3) == 'G')
-            return 3;
-        else if (s.charAt(i) == 'R' && s.charAt(i + 1) == 'A' && s.charAt(i + 2) == 'N' && s.charAt(i + 3) == 'D')
-            return 4;
-        else return -1;
+        for (int i = 0; i < parametersType.length; i++) {
+            if (str.charAt(pos) == parametersType[i].charAt(0) &&
+                    str.charAt(pos + 1) == parametersType[i].charAt(1) &&
+                    str.charAt(pos + 2) == parametersType[i].charAt(2) &&
+                    str.charAt(pos + 3) == parametersType[i].charAt(3)){
+                return i;
+            }
+        }
+
+        return -1;
+
     }
 }
