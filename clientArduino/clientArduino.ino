@@ -22,8 +22,6 @@ char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet
 // An EthernetUDP instance to let us send and receive packets over UDP
 EthernetUDP Udp;
 
-boolean recived = false;
-
 int temperature = 0;
 int humidity = 0;
 int luminosity = 0;
@@ -86,13 +84,16 @@ void setup() {
 
   delay(10000);
   Serial.println("ready\n");
-  Udp.beginPacket(server, externalPort);
-  Udp.write("HERE/0/1/0");
-  Udp.endPacket();
-  while (!recived) {
+
+  while (true) {
+
+    Udp.beginPacket(server, externalPort);
+    Udp.write("HERE/0/1/0");
+    Udp.endPacket();
     int packetSize = Udp.parsePacket();
+
     if (packetSize) {
-      recived = true;
+
       Serial.println("Answer received\n");
       Udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
 
@@ -101,13 +102,18 @@ void setup() {
         addend2 += "0";
       }
       addend2 += delayTime;
+
+      break;
     }
+
+    delay(500);
+
   }
 }
 
 void loop() {
 
-  delay(3000); //da sostituire condelayTime
+  delay(delayTime);
 
   parametersNumber = 0;
 
