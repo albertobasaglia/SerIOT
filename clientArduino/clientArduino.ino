@@ -1,114 +1,90 @@
+// Programma per l'invio, tramite shield Ethernet, di alcuni dati rilevati dall'Arduino con diversi sensori, utilizzando un protocollo
+// Struttura del protocollo: TYPE/NUMBER OF PARAMETERS/PARAM/VALUE OF THE PARAMETER/PARAM/VALUE OF THE PARAMETER/ID/TIME
+// Autori: Campagnol Leonardo e Basaglia Alberto
+
 #include <Ethernet.h>
 #include <DHT.h>
 #include <EthernetUdp.h>
-#include <String.h>
 
-DHT dht(50, DHT11);
+DHT dht(50, DHT11); //sensore di temperatura
 
-// Enter a MAC address and IP address for your controller below.
-// The IP address will be dependent on your local network:
-byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
-};
-IPAddress ip(192, 168, 1, 9);
-IPAddress server(192, 168, 1, 62);
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED}; //impostazione dell'indirizzo MAC
+
+IPAddress ip(192, 168, 1, 9);      //indirizzo ip della scheda arduino
+IPAddress server(192, 168, 1, 62); //indirizzo ip del server
 
 unsigned int localPort = 2001;      // local port to listen on
 unsigned int externalPort = 2000;
 
-// buffers for receiving and sending data
-char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet
+char packetBuffer[UDP_TX_PACKET_MAX_SIZE]; //buffer per l'immagazzinamento dei pacchetti in entrata
+int packetSize = 0; //dimensione del pacchetto ricevuto
 
-// An EthernetUDP instance to let us send and receive packets over UDP
-EthernetUDP Udp;
+EthernetUDP Udp; //EthernetUDP che permette la recezione e l'invio dei dati
 
-int temperature = 0;
-int humidity = 0;
-int luminosity = 0;
-int weight = 0;
-int randomNumber = 0;
+String message = ""; //il messaggio che varrà inviato al server
 
+boolean parameters[5];    //array che verifica se un parametro deve essere inviato o no
+int parametersNumber = 0; //numero di parametri che verranno inviati in un messaggio
+
+int temperature = 0;  //parametro contenente il valore della temperatura
+int humidity = 0;     //parametro contenente il valore dell'umidità
+int luminosity = 0;   //parametro contenente il valore della luminosità
+int weight = 0;       //parametro contenente il valore del peso
+int randomNumber = 0; //parametro contenente un valore casuale generato tra 0 e 1000, estremi compresi
+
+//campi necessari per eseguire la somma di due stringhe rappresentati il tempo trascorso
 String addend1 = "";
 String addend2 = "";
 String result = "";
 String recivedTime = "";
 boolean rest = false;
 
-int parameters[5];
-int parametersNumber = 0;
+String id = "1"; //id dell'Arduino
 
-String message = "";
-String id = "1";
+long delayTime = 10000; //tempo che dovrà aspettare prima di inviare il successivo messaggio
 
-int i = 0;
-
-long delayTime = 5000;
+int i = 0; //contatore
 
 void setup() {
-  // You can use Ethernet.init(pin) to configure the CS pin
-  //Ethernet.init(10);  // Most Arduino shields
-  //Ethernet.init(5);   // MKR ETH shield
-  //Ethernet.init(0);   // Teensy 2.0
-  //Ethernet.init(20);  // Teensy++ 2.0
-  //Ethernet.init(15);  // ESP8266 with Adafruit Featherwing Ethernet
-  //Ethernet.init(33);  // ESP32 with Adafruit Featherwing Ethernet
 
-  // start the Ethernet
-  Ethernet.begin(mac, ip);
-
-  // Open serial communications and wait for port to open:
   Serial.begin(9600);
   Serial.println("setup");
 
-  randomSeed(analogRead(0));
+  Ethernet.begin(mac, ip);
+  Udp.begin(localPort);
 
   dht.begin();
 
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
-
-  // Check for Ethernet hardware present
-  if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-    Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
-    while (true) {
-      delay(1); // do nothing, no point running without Ethernet hardware
-    }
-  }
-  if (Ethernet.linkStatus() == LinkOFF) {
-    Serial.println("Ethernet cable is not connected.");
-  }
-
-  // start UDP
-  Udp.begin(localPort);
-
-  delay(10000);
-  Serial.println("ready\n");
+  randomSeed(analogRead(0)); //generazione di un seme casuale
 
   while (true) {
 
     Udp.beginPacket(server, externalPort);
     Udp.write("HERE/0/1/0");
     Udp.endPacket();
-    int packetSize = Udp.parsePacket();
+
+    packetSize = Udp.parsePacket();
 
     if (packetSize) {
 
-      Serial.println("Answer received\n");
+      Serial.println("Ricevuto valore del tempo dal server\n");
       Udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
 
-      addend1 = String(packetBuffer);
+      addend1 = String(packetBuffer); //il primo addendo diventa il tempo ricevuto dal server
+      //il secondo addendo diventa una stringa della stessa dimesione del primo ma contenente solo il tempo d'attesa prestabilito
       for (i = 0; i < addend1.length() - String(delayTime).length(); i++) {
         addend2 += "0";
       }
       addend2 += delayTime;
 
       break;
+
     }
 
     delay(500);
 
   }
+
 }
 
 void loop() {
@@ -123,33 +99,35 @@ void loop() {
   weight = analogRead(A2);
   randomNumber = random(1, 1001);
 
+  //generazione casuale dei valori che dovranno essere inviati oppure no
   for (i = 0; i < 5; i++) {
     if (random(2) == 1) {
-      parameters[i] = 1;
+      parameters[i] = true;
       parametersNumber++;
     } else {
-      parameters[i] = 0;
+      parameters[i] = false;
     }
   }
 
   message = "POST/" + String((char)(parametersNumber + 48)) + "/";
 
-  if (parameters[0] == 1) {
+  if (parameters[0]) {
     message += "TEMP/" + String(temperature, DEC) + "/";
   }
-  if (parameters[1] == 1) {
+  if (parameters[1]) {
     message += "HUMI/" + String(humidity, DEC) + "/";
   }
-  if (parameters[2] == 1) {
+  if (parameters[2]) {
     message += "LUMI/" + String(luminosity, DEC) + "/";
   }
-  if (parameters[3] == 1) {
+  if (parameters[3]) {
     message += "WEIG/" + String(weight, DEC) + "/";
   }
-  if (parameters[4] == 1) {
+  if (parameters[4]) {
     message += "RAND/" + String(randomNumber, DEC) + "/";
   }
 
+  //algoritmo per la somma di due stringhe
   result = "";
   recivedTime = "";
   for (i = addend1.length() - 1; i > -1; i--) {
