@@ -33,8 +33,9 @@ public class Main {
         byte[] buf = new byte[1024];
         InetAddress ip = InetAddress.getByName("192.168.1.9");
 
-        int pos; //posizione in cui inserire il valore
-        int i;   //contatore
+        int pos;             //posizione in cui inserire il valore
+        int i;               //contatore
+        String support = ""; //stringa di supporto per l'inserimento dei valori
 
         DatagramPacket dp = new DatagramPacket(str.getBytes(), str.length(), ip, 2001);
         ds.send(dp);
@@ -75,11 +76,11 @@ public class Main {
 
                     int analizedParameters = 0; //numero di parametri che sono stati analizzati
 
-                    String[] data = new String[7]; //array contenente tutti i valori passati dall'Arduino
+                    long[] data = new long[7]; //array contenente tutti i valori passati dall'Arduino
 
-                    //inizializzazione di tutte le stringhe dell'array
+                    //inizializzazione di tutti i valori dell'array
                     for (i = 0; i < data.length; i++) {
-                        data[i] = "";
+                        data[i] = 0;
                     }
 
                     /**inserimento delle misurazioni nell'array
@@ -94,9 +95,11 @@ public class Main {
                             i += 5; //viene raggiunta la posizione da cui il valore inizia
 
                             //inserimento del parametro nell'array
+                            support = "";
                             while (str.charAt(i) != '/') {
-                                data[pos] += str.charAt(i++);
+                                support += str.charAt(i++);
                             }
+                            data[pos] = Long.parseLong(support);
 
                             analizedParameters++;
 
@@ -105,16 +108,20 @@ public class Main {
                     }
 
                     //inserimento dell'id nell'array
+                    support = "";
                     while (str.charAt(i) != '/') {
-                        data[5] += str.charAt(i++);
+                        support += str.charAt(i++);
                     }
+                    data[5] = Long.parseLong(support);
 
                     i++;
 
                     //inserimento del tempo nell'array
+                    support = "";
                     while (i < str.length()) {
-                        data[6] += str.charAt(i++);
+                        support += str.charAt(i++);
                     }
+                    data[6] = Long.parseLong(support);
 
                     //salvataggio dei dati sul database
                     Document document = new Document();
