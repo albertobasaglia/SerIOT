@@ -1,5 +1,5 @@
 // Programma per l'invio, tramite shield Ethernet, di alcuni dati rilevati dall'Arduino con diversi sensori, utilizzando un protocollo
-// Struttura del protocollo: TYPE/NUMBER OF PARAMETERS/PARAM/VALUE OF THE PARAMETER/PARAM/VALUE OF THE PARAMETER/ID/TIME
+// Struttura del protocollo: TYPE/PARAM/VALUE OF THE PARAMETER/PARAM/VALUE OF THE PARAMETER/ID/TIME
 // Autori: Campagnol Leonardo e Basaglia Alberto
 
 #include <Ethernet.h>
@@ -24,9 +24,6 @@ int packetSize = 0; //dimensione del pacchetto ricevuto
 EthernetUDP Udp; //EthernetUDP che permette la recezione e l'invio dei dati
 
 String message = ""; //il messaggio che varrà inviato al server
-
-boolean parameters[5];    //array che verifica se un parametro deve essere inviato o no
-int parametersNumber = 0; //numero di parametri che verranno inviati in un messaggio
 
 int temperature = 0;  //parametro contenente il valore della temperatura
 int humidity = 0;     //parametro contenente il valore dell'umidità
@@ -97,51 +94,34 @@ void loop() {
 
   lcd.clear();
 
-  parametersNumber = 0;
-
   temperature = dht.readTemperature();
   humidity = dht.readHumidity();
   luminosity = analogRead(A1);
   weight = analogRead(A2);
   randomNumber = random(1, 1001);
 
-  //generazione casuale dei valori che dovranno essere inviati oppure no
-  for (i = 0; i < 5; i++) {
-    if (random(2) == 1) {
-      parameters[i] = true;
-      parametersNumber++;
-    } else {
-      parameters[i] = false;
-    }
-  }
+  message = "POST/";
 
-  message = "POST/" + String((char)(parametersNumber + 48)) + "/";
+  message += "TEMP/" + String(temperature, DEC) + "/";
+  lcd.setCursor(0, 0);
+  lcd.print("TEMP:" + String(temperature, DEC) + char(0xDF));
 
-  if (parameters[0]) {
-    message += "TEMP/" + String(temperature, DEC) + "/";
-    lcd.setCursor(0, 0);
-    lcd.print("TEMP:" + String(temperature, DEC) + char(0xDF));
-  }
-  if (parameters[1]) {
-    message += "HUMI/" + String(humidity, DEC) + "/";
-    lcd.setCursor(11, 0);
-    lcd.print("HUMI:" + String(humidity, DEC) + "%");
-  }
-  if (parameters[2]) {
-    message += "LUMI/" + String(luminosity, DEC) + "/";
-    lcd.setCursor(0, 1);
-    lcd.print("LUMI:" + String(luminosity, DEC));
-  }
-  if (parameters[3]) {
-    message += "WEIG/" + String(weight, DEC) + "/";
-    lcd.setCursor(11, 1);
-    lcd.print("WEIG:" + String(weight, DEC));
-  }
-  if (parameters[4]) {
-    message += "RAND/" + String(randomNumber, DEC) + "/";
-    lcd.setCursor(0, 2);
-    lcd.print("RAND:" + String(randomNumber, DEC));
-  }
+  message += "HUMI/" + String(humidity, DEC) + "/";
+  lcd.setCursor(11, 0);
+  lcd.print("HUMI:" + String(humidity, DEC) + "%");
+
+  message += "LUMI/" + String(luminosity, DEC) + "/";
+  lcd.setCursor(0, 1);
+  lcd.print("LUMI:" + String(luminosity, DEC));
+
+  message += "WEIG/" + String(weight, DEC) + "/";
+  lcd.setCursor(11, 1);
+  lcd.print("WEIG:" + String(weight, DEC));
+
+  message += "RAND/" + String(randomNumber, DEC) + "/";
+  lcd.setCursor(0, 2);
+  lcd.print("RAND:" + String(randomNumber, DEC));
+
 
   //algoritmo per la somma di due stringhe
   result = "";
@@ -174,6 +154,7 @@ void loop() {
   message += id + "/" + recivedTime;
   lcd.setCursor(11, 2);
   lcd.print("ADDR:" + id);
+  
   lcd.setCursor(0, 3);
   lcd.print("TIME:" + recivedTime);
 

@@ -1,19 +1,29 @@
+/**
+ * Questo programma funge da server per la recezione di alcuni dati inviati da una scheda Arduino.
+ * I dati rappresentano dei valori ricavati tramite diversi sensori, rispettivamente:
+ * TEMPERATURA, UMIDITÀ, LUMINOSITÀ, PESO, NUMERO RANDOM.
+ * Quando il server viene a conoscenza della presenza dell'Arduino gli invia il tempo.
+ * Il programma si occupa anche di salvare queste misurazioni su un file .csv e su un database MongodDB
+ *
+ * @author Campagnol Leonardo e Basaglia Alberto
+ * @version 1.0
+ * @since 21-04-2019
+ */
+
+import java.io.*;
+import java.net.*;
+
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
 
-import java.io.IOException;
-import java.net.*;
-
 public class Main {
-
-    public static final String[] prefixesType = {"HERE", "POST"};
-    public static final String[] parametersType = {"TEMP", "HUMI", "LUMI", "WEIG", "RAND"};
 
     public static void main(String[] args) throws IOException {
 
+        //Inizializzazione della cominicazione con il database e con la rispettiva collection
         MongoClient mongoClient = MongoClients.create(Credentials.uri);
         MongoDatabase database = mongoClient.getDatabase("seriot");
         MongoCollection<Document> records = database.getCollection("records");
@@ -23,93 +33,150 @@ public class Main {
         byte[] buf = new byte[1024];
         InetAddress ip = InetAddress.getByName("192.168.1.9");
 
-        int pos = 0;
-        int parametersNumber = 0;
+        int pos; //posizione in cui inserire il valore
+        int i;   //contatore
 
         DatagramPacket dp = new DatagramPacket(str.getBytes(), str.length(), ip, 2001);
         ds.send(dp);
 
-        while (true) {
+        try {
 
-            String[] data = new String[parametersType.length + 2];
+            File file = new File("records.csv");
+            FileWriter fw = new FileWriter(file, true);
+            BufferedReader br = new BufferedReader(new FileReader(file));
+            BufferedWriter bw = new BufferedWriter(fw);
+            PrintWriter pw = new PrintWriter(bw);
 
-            for (int i = 0; i < data.length; i++) {
-                data[i] = "";
-            }
+            //se la prima riga del file è vuota viene scitta l'intestazione
+            if (br.readLine() == null) {
 
-            dp = new DatagramPacket(buf, 1024);
-            ds.receive(dp);
-            str = new String(dp.getData(), 0, dp.getLength());
-
-            if (getPosition(0, str) == -1) {
-
-                str = "" + System.currentTimeMillis();
-
-                dp = new DatagramPacket(str.getBytes(), str.length(), ip, 2001);
-                ds.send(dp);
-
-            } else if (getPosition(0, str) == -2) {
-
-                parametersNumber = (int) str.charAt(5) - 48;
-
-                for (int i = 7; i < str.length(); i++) {
-                    if ((int) str.charAt(i) > 64 && (int) str.charAt(i) < 91) {
-                        parametersNumber--;
-                        pos = getPosition(i, str);
-                        i += 5;
-                        while ((int) str.charAt(i) != '/') {
-                            data[pos] += str.charAt(i++);
-                        }
-                    } else if (parametersNumber == 0) {
-                        data[parametersType.length] += str.charAt(i);
-                        i += 2;
-                        while (i < str.length()) {
-                            data[parametersType.length + 1] += str.charAt(i++);
-                        }
-                    }
-                }
-
-                Document document = new Document();
-                for (int i = 0; i < data.length - 2; i++) {
-                    if (!data[i].equals("")) {
-                        document.append(parametersType[i], data[i]);
-                    }
-                }
-                document.append("ADDR", data[data.length - 2]);
-                document.append("TIME", data[data.length - 1]);
-                records.insertOne(document);
-
-                for (String s : data) {
-                    System.out.println(s);
-                }
-                System.out.println("");
+                pw.println("Temperature,Humidity,Luminosity,Weigth,Random,Id,Time");
+                pw.flush();
 
             }
 
+            while (true) {
+
+                dp = new DatagramPacket(buf, 1024);
+                ds.receive(dp);
+                str = new String(dp.getData(), 0, dp.getLength());
+
+                //secondo il protocollo utilizzato HERE significa che l'Arduino ha bisogno di ricevere il tempo
+                if (str.substring(0, 4).equals("HERE")) {
+
+                    str = "" + System.currentTimeMillis();
+
+                    dp = new DatagramPacket(str.getBytes(), str.length(), ip, 2001);
+                    ds.send(dp);
+
+                }
+                //secondo il protocollo utilizzato POST identifica un messaggio contenente dei valori
+                else if (str.substring(0, 4).equals("POST")) {
+
+                    int analizedParameters = 0; //numero di parametri che sono stati analizzati
+
+                    String[] data = new String[7]; //array contenente tutti i valori passati dall'Arduino
+
+                    //inizializzazione di tutte le stringhe dell'array
+                    for (i = 0; i < data.length; i++) {
+                        data[i] = "";
+                    }
+
+                    /**inserimento delle misurazioni nell'array
+                     * il ciclo esce una volta che tutti i parametri sono stati analizzati
+                     */
+                    for (i = 5; analizedParameters != 5; i++) {
+
+                        if ((int) str.charAt(i) > 64 && (int) str.charAt(i) < 91) {
+
+                            pos = getPosition(i, str);
+
+                            i += 5; //viene raggiunta la posizione da cui il valore inizia
+
+                            //inserimento del parametro nell'array
+                            while (str.charAt(i) != '/') {
+                                data[pos] += str.charAt(i++);
+                            }
+
+                            analizedParameters++;
+
+                        }
+
+                    }
+
+                    //inserimento dell'id nell'array
+                    while (str.charAt(i) != '/') {
+                        data[5] += str.charAt(i++);
+                    }
+
+                    i++;
+
+                    //inserimento del tempo nell'array
+                    while (i < str.length()) {
+                        data[6] += str.charAt(i++);
+                    }
+
+                    //salvataggio dei dati sul database
+                    Document document = new Document();
+                    document.append("temp", data[0]);
+                    document.append("humi", data[1]);
+                    document.append("lumi", data[2]);
+                    document.append("weig", data[3]);
+                    document.append("rand", data[4]);
+                    document.append("addr", data[5]);
+                    document.append("time", data[6]);
+                    records.insertOne(document);
+
+                    //salvataggio dei dati su file .csv
+                    pw.println(data[0] + "," +
+                            data[1] + "," +
+                            data[2] + "," +
+                            data[3] + "," +
+                            data[4] + "," +
+                            data[5] + "," +
+                            data[6]);
+                    pw.flush();
+
+                    //scrittura dei dati su console
+                    System.out.println("Temperature: " + data[0]);
+                    System.out.println("Humidity:    " + data[1]);
+                    System.out.println("Luminosity:  " + data[2]);
+                    System.out.println("Weigth:      " + data[3]);
+                    System.out.println("Random:      " + data[4]);
+                    System.out.println("Address:     " + data[5]);
+                    System.out.println("Time:        " + data[6] + "\n");
+
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
     }
 
-    public static int getPosition(int pos, String str) {
+    /**
+     * Funzione che restituisce la posizione dell'array corrispondente al parametro desiderato
+     *
+     * @param i   ovvero la posizione della stringa da cui iniziare la verifica dell'etichetta del parametro
+     * @param str ovvero la stringa da analizzare
+     * @return un numero corrispondente alla posizione in cui dovrà essere inserito il valore ricavato
+     */
+    private static int getPosition(int i, String str) {
 
-        for (int i = prefixesType.length - 1; i > -1; i--) {
-            if (str.charAt(pos) == prefixesType[i].charAt(0) &&
-                    str.charAt(pos + 1) == prefixesType[i].charAt(1) &&
-                    str.charAt(pos + 2) == prefixesType[i].charAt(2) &&
-                    str.charAt(pos + 3) == prefixesType[i].charAt(3)) {
-                return -i - 1;
-            }
-        }
-        for (int i = 0; i < parametersType.length; i++) {
-            if (str.charAt(pos) == parametersType[i].charAt(0) &&
-                    str.charAt(pos + 1) == parametersType[i].charAt(1) &&
-                    str.charAt(pos + 2) == parametersType[i].charAt(2) &&
-                    str.charAt(pos + 3) == parametersType[i].charAt(3)) {
-                return i;
-            }
+        if (str.substring(i, i + 4).equals("TEMP")) {
+            return 0;
+        } else if (str.substring(i, i + 4).equals("HUMI")) {
+            return 1;
+        } else if (str.substring(i, i + 4).equals("LUMI")) {
+            return 2;
+        } else if (str.substring(i, i + 4).equals("WEIG")) {
+            return 3;
+        } else if (str.substring(i, i + 4).equals("RAND")) {
+            return 4;
         }
 
         return -1;
-
     }
+
 }
