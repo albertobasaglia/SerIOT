@@ -4,9 +4,11 @@
 
 #include <Ethernet.h>
 #include <DHT.h>
+#include <LiquidCrystal_I2C.h>
 #include <EthernetUdp.h>
 
-DHT dht(50, DHT11); //sensore di temperatura
+DHT dht(6, DHT11);                 //sensore di temperatura
+LiquidCrystal_I2C lcd(0x27, 20, 4); //schermo LCD
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED}; //impostazione dell'indirizzo MAC
 
@@ -55,6 +57,10 @@ void setup() {
 
   dht.begin();
 
+  //accensione display LCD
+  lcd.init();
+  lcd.backlight();
+
   randomSeed(analogRead(0)); //generazione di un seme casuale
 
   while (true) {
@@ -89,7 +95,7 @@ void setup() {
 
 void loop() {
 
-  delay(delayTime);
+  lcd.clear();
 
   parametersNumber = 0;
 
@@ -113,18 +119,28 @@ void loop() {
 
   if (parameters[0]) {
     message += "TEMP/" + String(temperature, DEC) + "/";
+    lcd.setCursor(0, 0);
+    lcd.print("TEMP:" + String(temperature, DEC) + char(0xDF));
   }
   if (parameters[1]) {
     message += "HUMI/" + String(humidity, DEC) + "/";
+    lcd.setCursor(11, 0);
+    lcd.print("HUMI:" + String(humidity, DEC) + "%");
   }
   if (parameters[2]) {
     message += "LUMI/" + String(luminosity, DEC) + "/";
+    lcd.setCursor(0, 1);
+    lcd.print("LUMI:" + String(luminosity, DEC));
   }
   if (parameters[3]) {
     message += "WEIG/" + String(weight, DEC) + "/";
+    lcd.setCursor(11, 1);
+    lcd.print("WEIG:" + String(weight, DEC));
   }
   if (parameters[4]) {
     message += "RAND/" + String(randomNumber, DEC) + "/";
+    lcd.setCursor(0, 2);
+    lcd.print("RAND:" + String(randomNumber, DEC));
   }
 
   //algoritmo per la somma di due stringhe
@@ -156,6 +172,12 @@ void loop() {
   addend1 = recivedTime;
 
   message += id + "/" + recivedTime;
+  lcd.setCursor(11, 2);
+  lcd.print("ADDR:" + id);
+  lcd.setCursor(0, 3);
+  lcd.print("TIME:" + recivedTime);
+
+  Serial.println("Inviato messaggio: " + message);
 
   char support[message.length() + 1];
   message.toCharArray(support, message.length() + 1);
@@ -163,5 +185,7 @@ void loop() {
   Udp.beginPacket(server, externalPort);
   Udp.write(support);
   Udp.endPacket();
+
+  delay(delayTime);
 
 }
