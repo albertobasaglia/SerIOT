@@ -1,0 +1,14 @@
+<table class="table">
+  <thead class="thead-dark">
+  <tr>
+    <th scope="col" *ngFor="let key of apiService.fields">
+      {{ key }}
+    </th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr *ngFor="let row of apiService.records">
+    <td *ngFor="let field of apiService.fields">{{ row.get(field) }}</td>
+  </tr>
+  </tbody>
+</table>

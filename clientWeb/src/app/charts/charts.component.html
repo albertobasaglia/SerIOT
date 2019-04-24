@@ -1,0 +1,6 @@
+<h1 class="display-5">Grafici</h1>
+
+<app-chart
+  *ngFor="let field of apiService.chartFields"
+  [field]="field"
+></app-chart>
