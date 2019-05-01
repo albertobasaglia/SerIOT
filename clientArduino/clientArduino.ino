@@ -38,7 +38,7 @@ String result = "";
 String recivedTime = "";
 boolean rest = false;
 
-String id = "5"; //id dell'Arduino
+String id = "1"; //id dell'Arduino
 
 long delayTime = 10000; //tempo che dovrà aspettare prima di inviare il successivo messaggio
 
