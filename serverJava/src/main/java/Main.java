@@ -31,13 +31,12 @@ public class Main {
         String str = "";
         DatagramSocket ds = new DatagramSocket(2000);
         byte[] buf = new byte[1024];
-        InetAddress ip = InetAddress.getByName("192.168.1.9");
 
         int pos;             //posizione in cui inserire il valore
         int i;               //contatore
         String support = ""; //stringa di supporto per l'inserimento dei valori
 
-        DatagramPacket dp = new DatagramPacket(str.getBytes(), str.length(), ip, 2001);
+        DatagramPacket dp = new DatagramPacket(str.getBytes(), str.length(), InetAddress.getByName("255.255.255.255"), 2001);
         ds.send(dp);
 
         try {
@@ -67,7 +66,7 @@ public class Main {
 
                     str = "" + System.currentTimeMillis();
 
-                    dp = new DatagramPacket(str.getBytes(), str.length(), ip, 2001);
+                    dp = new DatagramPacket(str.getBytes(), str.length(), dp.getAddress(), 2001);
                     ds.send(dp);
 
                 }
@@ -135,7 +134,8 @@ public class Main {
                     records.insertOne(document);
 
                     //salvataggio dei dati su file .csv
-                    pw.println(data[0] + "," +
+                    pw.println(
+                            data[0] + "," +
                             data[1] + "," +
                             data[2] + "," +
                             data[3] + "," +
